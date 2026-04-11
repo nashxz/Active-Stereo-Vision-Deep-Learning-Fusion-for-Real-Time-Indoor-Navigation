@@ -93,7 +93,7 @@ def compute_apf_and_steer(depth_in_meters, yolo_results):
             x1, y1, x2, y2 = map(int, box.xyxy[0])
             obj_depth = get_valid_depth(depth_in_meters[y1:y2, x1:x2])
             
-            if 0.05 < obj_depth < (D_INF + 0.5): # See objects a bit further away
+            if 0.05 < obj_depth < (D_INF + 0.5):
                 box_center_x = (x1 + x2) / 2
                 angle = (box_center_x / W) * H_FOV - (H_FOV / 2)
                 
@@ -158,7 +158,7 @@ def main():
     volt_str = "Voltage: N/A"
     pwr_str = "Power: N/A"
     
-    last_sent_direction = None # <-- FIX: Prevents serial buffer flooding
+    last_sent_direction = None # prevents serial buffer floods
     frame_counter = 0
     
     try:
@@ -169,20 +169,18 @@ def main():
             
             depth_frame = aligned_frames.get_depth_frame()
             color_frame = aligned_frames.get_color_frame()
-            # 1. Grab the IR frame (unaligned, as IR and Depth share an optical center)
             ir_frame = frames.get_infrared_frame(1) 
             
-            if not depth_frame or not color_frame or not ir_frame: continue
 
             frame = np.asanyarray(color_frame.get_data())
             depth_data = np.asanyarray(depth_frame.get_data())
             depth_in_meters = depth_data * depth_scale
             
-            # 2. Process IR data (Convert 8-bit grayscale to 3-channel BGR so it stacks with color)
+            
             ir_data = np.asanyarray(ir_frame.get_data())
             ir_image = cv2.cvtColor(ir_data, cv2.COLOR_GRAY2BGR)
             
-            # 3. Process Depth data for viewing (Apply a colormap)
+            # colormap for depth
             depth_visual = cv2.normalize(depth_data, None, 0, 255, cv2.NORM_MINMAX, dtype=cv2.CV_8U)
             depth_colormap = cv2.applyColorMap(depth_visual, cv2.COLORMAP_JET)
 
@@ -200,7 +198,7 @@ def main():
                     volt_str = f"Voltage: {bus_voltage:.2f} V"
                     pwr_str  = f"Power  : {power_w:.2f} W"
                 except Exception:
-                    pass # Ignore occasional I2C read glitches
+                    pass 
             
             if first_inference:
                 print("-> Warming up TensorRT GPU Engine...")
