@@ -7,9 +7,8 @@ from communication import ChassisController
 from ina219 import INA219
 import time
 
-# COPY AND RUN THIS ON POWERSHELL (LAPTOP) TO START THE GSTREAMER RTSP SERVER:
+# COPY AND RUN THIS ON POWERSHELL (LAPTOP) TO START THE GSTREAMER SERVER:
 # cmd.exe /c '"C:\Program Files\gstreamer\1.0\msvc_x86_64\bin\gst-launch-1.0.exe" -v udpsrc port=5000 ! application/x-rtp,media=video,clock-rate=90000,encoding-name=H264,payload=96 ! rtph264depay ! decodebin ! videoconvert ! autovideosink sync=false'
-
 
 # config
 W, H = 640, 480
@@ -25,7 +24,6 @@ def setup_hardware():
     config = rs.config()
     config.enable_stream(rs.stream.depth, W, H, rs.format.z16, FPS)
     config.enable_stream(rs.stream.color, W, H, rs.format.bgr8, FPS)
-    # 1. Enable Infrared stream (Index 1 is usually the left IR imager)
     config.enable_stream(rs.stream.infrared, 1, W, H, rs.format.y8, FPS)
     
     profile = pipeline.start(config)
@@ -35,7 +33,10 @@ def setup_hardware():
     if depth_sensor.supports(rs.option.emitter_enabled):
         depth_sensor.set_option(rs.option.emitter_enabled, 1)
         depth_sensor.set_option(rs.option.visual_preset, 3) 
-        
+    
+    # CHANGE HERE: CHANGE LAPTOP IP Address according to wifi
+    # on laptop, open cmd and run "ipconfig" to find the correct IP address to stream to
+
     # bitrate initially 1500, now 2000
     gst_out = (
         "appsrc ! videoconvert ! video/x-raw, format=I420 ! "
@@ -51,22 +52,21 @@ def setup_hardware():
         
     return pipeline, align, profile, out
 
-# HELPER FUNCTIONS
 def get_valid_depth(slice_data):
     valid = slice_data[slice_data > 0]
     return np.median(valid) if len(valid) > 0 else 0.0
 
-# THE ARTIFICIAL POTENTIAL FIELD (APF)
+# APF
 def compute_apf_and_steer(depth_in_meters, yolo_results):
     global current_direction
     
     H_FOV = math.radians(87) 
     
-    # ATTRACTIVE FORCE
+    # Attr force
     f_x = 0.8  
     f_y = 0.0  
     
-    # REPULSIVE FORCE: RAW DEPTH
+    # repulsive force
     center_row = H // 2
     strip = depth_in_meters[center_row-10:center_row+10, :]
     closest_points = np.min(strip, axis=0)
@@ -106,7 +106,7 @@ def compute_apf_and_steer(depth_in_meters, yolo_results):
                 f_x -= mag * (math.cos(angle)) * 0.5 
                 f_y -= mag * (math.sin(angle) * -1) * 1.5 
                 
-    # 4. DECISION MATRIX WITH HYSTERESIS
+
     new_direction = 'f'
     
     if f_x < 0.15: 
@@ -129,13 +129,10 @@ def compute_apf_and_steer(depth_in_meters, yolo_results):
     return new_direction, f_x, f_y # Returning the forces to display on screen
 
 
-# MAIN LOOP
-
+# main loop
 def main():
-    try:
-        cv2.destroyAllWindows()
-    except:
-        pass
+    
+    cv2.destroyAllWindows()
         
     pipeline, align, profile, out = setup_hardware()
     model = YOLO('/home/group26/Active-Stereo-Vision-Deep-Learning-Fusion-for-Real-Time-Indoor-Navigation/src/brain/yolov8n.engine', task='detect')
@@ -153,7 +150,6 @@ def main():
     except Exception as e:
         print(f"-> WARNING: UPS not detected ({e}).")
 
-    # Variables to hold the text so we don't have to read I2C every frame
     batt_str = "Battery: N/A"
     volt_str = "Voltage: N/A"
     pwr_str = "Power: N/A"
@@ -171,11 +167,9 @@ def main():
             color_frame = aligned_frames.get_color_frame()
             ir_frame = frames.get_infrared_frame(1) 
             
-
             frame = np.asanyarray(color_frame.get_data())
             depth_data = np.asanyarray(depth_frame.get_data())
             depth_in_meters = depth_data * depth_scale
-            
             
             ir_data = np.asanyarray(ir_frame.get_data())
             ir_image = cv2.cvtColor(ir_data, cv2.COLOR_GRAY2BGR)
@@ -184,32 +178,29 @@ def main():
             depth_visual = cv2.normalize(depth_data, None, 0, 255, cv2.NORM_MINMAX, dtype=cv2.CV_8U)
             depth_colormap = cv2.applyColorMap(depth_visual, cv2.COLORMAP_JET)
 
-            # Poll battery every 30 frames to prevent I2C bottlenecking
+            # Poll battery every 30 frames
             if ups_sensor and frame_counter % 30 == 0:
-                try:
-                    bus_voltage = ups_sensor.getBusVoltage_V()
-                    power_w = ups_sensor.getPower_W()
-                    
-                    # Calculate percentage based on 3-cell 9V-12.6V logic
-                    percent = (bus_voltage - 9) / 3.6 * 100
-                    percent = max(0, min(percent, 100))
-                    
-                    batt_str = f"Battery: {percent:.1f} %"
-                    volt_str = f"Voltage: {bus_voltage:.2f} V"
-                    pwr_str  = f"Power  : {power_w:.2f} W"
-                except Exception:
-                    pass 
             
-            if first_inference:
-                print("-> Warming up TensorRT GPU Engine...")
+                bus_voltage = ups_sensor.getBusVoltage_V()
+                power_w = ups_sensor.getPower_W()
+                
+                # Calculate percentage based on 3-cell 9V-12.6V logic
+                percent = (bus_voltage - 9) / 3.6 * 100
+                percent = max(0, min(percent, 100))
+                
+                batt_str = f"Battery: {percent:.1f} %"
+                volt_str = f"Voltage: {bus_voltage:.2f} V"
+                pwr_str  = f"Power  : {power_w:.2f} W"
+                
+            
             results = model(frame, verbose=False)
             if first_inference:
-                print("-> Sprinting at full FPS...")
+                print("stream started!")
                 first_inference = False
                 
             frame = results[0].plot()
 
-            # The Brain: Run Artificial Potential Field
+            # APF + Steering Decision
             direction, f_x, f_y = compute_apf_and_steer(depth_in_meters, results)
             
             # Send to Wheels ONLY if the decision changed
@@ -217,7 +208,7 @@ def main():
                 chassis.send_command(direction)
                 last_sent_direction = direction
 
-            # Heads Up Display (HUD) for Stream (Drawn on the RGB frame)
+            # Heads Up Display on RGB Stream
             color_map = {'f': (0, 255, 0), 'l': (0, 255, 255), 'r': (0, 255, 255), 's': (0, 0, 255)}
             text_map = {'f': 'FORWARD', 'l': 'TURN LEFT', 'r': 'TURN RIGHT', 's': 'BRAKE'}
             
@@ -226,19 +217,17 @@ def main():
             cv2.putText(frame, f"Fx (Fwd): {f_x:.2f} | Fy (Lat): {f_y:.2f}", (10, 70), 
                         cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
 
-            # 4. Create the 2x2 Grid Layout
-            # Top row: RGB on left, Depth on right
+            # 2x2 Grid Layout
             top_row = np.hstack((frame, depth_colormap))
-            
-            # Bottom row: IR on left, Blank (or a custom dashboard) on right
-            # Bottom row: IR on left, Blank (or a custom dashboard) on right
             blank_square = np.zeros((H, W, 3), dtype=np.uint8)
             
-            # Draw telemetry on the blank square
             if ups_sensor:
-                # Color code battery text (Red if low, Green if good)
-                batt_color = (0, 0, 255) if "N/A" not in batt_str and float(batt_str.split()[1]) < 20 else (0, 255, 0)
-                
+                # Red if low battery, Green if good
+                if "N/A" not in batt_str and float(batt_str.split()[1]) < 20:
+                    batt_color = (0, 0, 255)
+                else:
+                    batt_color = (0, 255, 0)
+
                 cv2.putText(blank_square, batt_str, (50, H//2 - 40), cv2.FONT_HERSHEY_SIMPLEX, 0.8, batt_color, 2)
                 cv2.putText(blank_square, volt_str, (50, H//2), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
                 cv2.putText(blank_square, pwr_str, (50, H//2 + 40), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
