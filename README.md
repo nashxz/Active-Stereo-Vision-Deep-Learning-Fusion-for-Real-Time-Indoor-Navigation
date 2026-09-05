@@ -1,14 +1,18 @@
 # YOLO/Stereo Vision Indoor Navigating Car
 
-![Obstacle Avoidance Demo](src/pt1_capstone.gif)
+# YOLO/Stereo Vision Indoor Navigating Car
 
-![Obstacle Avoidance Demo](src/pt2_capstone.gif)
+### Regular Lighting — Third-Person View
+![Regular Lighting Third Person](src/pt1_capstone.gif)
 
-![Obstacle Avoidance Demo](src/pt3_capstone.gif)
+### Regular Lighting — First-Person View
+![Regular Lighting First Person](src/pt2_capstone.gif)
 
-![Obstacle Avoidance Demo](src/pt4_capstone.gif)
+### Low Light — Third-Person View
+![Low Light Third Person](src/pt3_capstone.gif)
 
-
+### Low Light — First-Person View
+![Low Light First Person](src/pt4_capstone.gif)
 
 
 ## Project Overview
