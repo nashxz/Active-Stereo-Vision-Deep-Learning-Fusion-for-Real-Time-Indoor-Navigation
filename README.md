@@ -1,6 +1,5 @@
 # YOLO/Stereo Vision Indoor Navigating Car
 
-# YOLO/Stereo Vision Indoor Navigating Car
 
 ### Regular Lighting — Third-Person View
 ![Regular Lighting Third Person](src/pt1_capstone.gif)
