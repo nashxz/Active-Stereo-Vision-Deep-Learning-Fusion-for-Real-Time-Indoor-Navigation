@@ -1,5 +1,10 @@
 # YOLO/Stereo Vision Indoor Navigating Car
 
+![Obstacle Avoidance Demo](src/pt1_capstone.gif)
+
+
+
+
 ## Project Overview
 
 **ECE 490/491 - Group 26 | University of Alberta**
