@@ -2,6 +2,12 @@
 
 ![Obstacle Avoidance Demo](src/pt1_capstone.gif)
 
+![Obstacle Avoidance Demo](src/pt2_capstone.gif)
+
+![Obstacle Avoidance Demo](src/pt3_capstone.gif)
+
+![Obstacle Avoidance Demo](src/pt4_capstone.gif)
+
 
 
 
