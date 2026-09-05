@@ -1,7 +1,5 @@
 # YOLO/Stereo Vision Indoor Navigating Car
 
-![Capstone Demo](src/Capstone_Video_gif.gif)
-
 ## Project Overview
 
 **ECE 490/491 - Group 26 | University of Alberta**
